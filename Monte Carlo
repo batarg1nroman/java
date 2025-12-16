@@ -1,0 +1,93 @@
+import java.util.*;
+import java.util.concurrent.*;
+
+interface MathFunction {
+    double evaluate(double x);
+}
+
+public class MonteCarloIntegral {
+
+    public static void main(String[] args) {
+        System.out.println("Вычисление интеграла методом Монте-Карло с потоками\n");
+
+        try {
+            System.out.println("∫₀¹ x² dx = 1/3 ≈ 0.333333");
+            MathFunction f = x -> x * x;
+            double result = computeIntegral(f, 0.0, 1.0, 1_000_000, 4);
+            System.out.printf("Результат: %.6f\n", result);
+            System.out.printf("Погрешность: %.6f\n", Math.abs(result - 1.0/3.0));
+
+        } catch (Exception e) {
+            System.err.println("Ошибка: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static double computeIntegral(MathFunction function, double a, double b,
+                                         int totalSamples, int threadCount)
+            throws InterruptedException, ExecutionException {
+
+        if (a >= b) throw new IllegalArgumentException("Нижний предел должен быть меньше верхнего");
+        if (totalSamples <= 0) throw new IllegalArgumentException("Количество точек должно быть положительным");
+        if (threadCount <= 0) throw new IllegalArgumentException("Количество потоков должно быть положительным");
+
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        int samplesPerThread = totalSamples / threadCount;
+        int remainingSamples = totalSamples % threadCount;
+
+        List<Future<Double>> futures = new ArrayList<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            int samples = samplesPerThread;
+            if (i == threadCount - 1) samples += remainingSamples;
+
+            Callable<Double> task = new MonteCarloTask(function, a, b, samples, i);
+            futures.add(executor.submit(task));
+        }
+
+        double totalSum = 0.0;
+        for (Future<Double> future : futures) {
+            totalSum += future.get();
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+
+        return totalSum / threadCount;
+    }
+
+    private static class MonteCarloTask implements Callable<Double> {
+        private final MathFunction function;
+        private final double lowerBound;
+        private final double upperBound;
+        private final int samples;
+        private final int threadId;
+        private final Random random;
+
+        public MonteCarloTask(MathFunction function, double lowerBound,
+                              double upperBound, int samples, int threadId) {
+            this.function = function;
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
+            this.samples = samples;
+            this.threadId = threadId;
+            this.random = new Random(System.currentTimeMillis() + threadId);
+        }
+
+        @Override
+        public Double call() {
+            double sum = 0.0;
+            double range = upperBound - lowerBound;
+
+            for (int i = 0; i < samples; i++) {
+                double x = lowerBound + random.nextDouble() * range;
+                sum += function.evaluate(x);
+            }
+
+            double threadResult = (sum / samples) * range;
+            System.out.printf("  Поток %d: %d точек, результат: %.6f\n", threadId, samples, threadResult);
+            return threadResult;
+        }
+    }
+}
