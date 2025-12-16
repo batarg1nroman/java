@@ -1,0 +1,59 @@
+// List.java
+package collections;
+
+import java.util.Objects;
+
+public abstract class List<T> {
+
+    public abstract int size();
+
+    public abstract T get(int index);
+
+    public abstract T set(int index, T element);
+
+    public abstract void add(T element);
+
+    public abstract void add(int index, T element);
+
+    public abstract T remove(int index);
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
+
+    public boolean contains(T element) {
+        for (int i = 0; i < size(); i++) {
+            if (Objects.equals(get(i), element)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public abstract void clear();
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < size(); i++) {
+            sb.append(get(i));
+            if (i < size() - 1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    protected void checkIndex(int index) {
+        if (index < 0 || index >= size()) {
+            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size());
+        }
+    }
+
+    protected void checkIndexForAdd(int index) {
+        if (index < 0 || index > size()) {
+            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size());
+        }
+    }
+}
